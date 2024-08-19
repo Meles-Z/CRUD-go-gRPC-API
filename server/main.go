@@ -6,10 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"time"
 
 	"github.com/google/uuid"
 	pb "github.com/grpc-kubernate/proto"
+	"google.golang.org/grpc"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -126,4 +128,30 @@ func (*server) UpdateMovie(ctx context.Context, req *pb.UpdateMovieRequest) (*pb
 		},
 
 	},nil
+}
+
+func (*server) DeleteMovie(ctx context.Context, req *pb.DeleteMovieRequest) (*pb.DeleteMovieResponse, error){
+	fmt.Println("delete movie")
+	var movie Movie
+	res:=DB.Where("id=?",req.GetId()).Delete(&movie)
+	if res.RowsAffected==0{
+		return nil, errors.New("Movie not found")
+	}
+	return &pb.DeleteMovieResponse{
+		Success: true,
+	},nil
+}
+
+func main(){
+	fmt.Println("gRPC server running...")
+	lis, err:=net.Listen("tcp",fmt.Sprintf(":%d",*port))
+	if err !=nil{
+		log.Fatalf("faild to listen on %v",err)
+	}
+	s:=grpc.NewServer()
+	pb.RegisterMovieServiceServer(s,&server{})
+	log.Printf("Server listening at %v", lis.Addr())
+	if err:=s.Serve(lis);err !=nil{
+		log.Fatalf("faild to serve: %v",err)
+	}
 }
